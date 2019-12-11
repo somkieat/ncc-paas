@@ -1,0 +1,45 @@
+version: '2'
+services:
+### MySQL Container #########################################
+    443_mysql:
+        image: mysql:5.7.17
+        environment:
+            - MYSQL_DATABASE=dev
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=password
+            - MYSQL_ROOT_PASSWORD=password
+        volumes:
+            - ./data:/var/lib/mysql
+        ports:
+            - "3306:3306"
+        container_name: 443_mysql
+        command: sh -c "mv /etc/localtime /etc/localtime.bak && ln -s /usr/share/zoneinfo/Asia/Bangkok /etc/localtime && /usr/local/bin/docker-entrypoint.sh mysqld "
+### PHP-FPM Container #######################################
+    443_php:
+        image: php:7.1.0-fpm
+        volumes:
+            - ./www:/var/code
+        depends_on:
+            - 443_mysql
+        links:
+            - 443_mysql
+        container_name: 443_php
+        command: sh -c "mv /etc/localtime /etc/localtime.bak && ln -s /usr/share/zoneinfo/Asia/Bangkok /etc/localtime &&  php-fpm "
+### Nginx Server Container ##################################
+    443_nginx:
+        image: nginx:1.16.1-alpine
+        volumes_from:
+            - 443_php
+        volumes:
+            - ./www:/var/code
+            - ./nginx:/etc/nginx:ro
+            - /etc/letsencrypt:/var/cert
+            - /etc/ssl/certs:/var/ssl
+            - /var/log:/var/log
+        ports:
+            - "80:80"
+            - "443:443"
+        links:
+            - 443_php
+        container_name: 443_nginx
+        command: sh -c "cp /etc/nginx/Bangkok /etc/localtime && echo 'Asia/Bangkok' >  /etc/timezone && date &&  nginx -g 'daemon off;'"
